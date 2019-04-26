@@ -87,6 +87,10 @@
 
 using namespace llvm;
 
+#if JL_LLVM_VERSION >= 80000
+typedef Instruction TerminatorInst;
+#endif
+
 #if defined(_OS_WINDOWS_) && !defined(NOMINMAX)
 #define NOMINMAX
 #endif
@@ -5647,18 +5651,28 @@ static std::unique_ptr<Module> emit_function(
         else {
             subrty = get_specsig_di(jlrettype, lam->specTypes, topfile, dbuilder);
         }
-        SP = dbuilder.createFunction(CU,
-                                     dbgFuncName,      // Name
-                                     f->getName(),     // LinkageName
-                                     topfile,          // File
-                                     toplineno,        // LineNo
-                                     subrty,           // Ty
-                                     false,            // isLocalToUnit
-                                     true,             // isDefinition
-                                     toplineno,        // ScopeLine
-                                     DIFlagZero,       // Flags
-                                     true,             // isOptimized
-                                     nullptr);         // Template Parameters
+        SP = dbuilder.createFunction(CU
+                                     ,dbgFuncName      // Name
+                                     ,f->getName()     // LinkageName
+                                     ,topfile          // File
+                                     ,toplineno        // LineNo
+                                     ,subrty           // Ty
+#if JL_LLVM_VERSION < 80000
+                                     ,false            // isLocalToUnit
+                                     ,true             // isDefinition
+#endif
+                                     ,toplineno        // ScopeLine
+                                     ,DIFlagZero       // Flags
+#if JL_LLVM_VERSION < 80000
+                                     ,true             // isOptimized
+                                     ,nullptr          // Template Parameters
+#else
+                                     ,DISubprogram::SPFlagDefinition | DISubprogram::SPFlagOptimized // SPFlags
+                                     ,nullptr          // Template Parameters
+                                     ,nullptr          // Template Declaration
+                                     ,nullptr          // ThrownTypes
+#endif
+                                     );
         topdebugloc = DebugLoc::get(toplineno, 0, SP, NULL);
         f->setSubprogram(SP);
         if (jl_options.debug_level >= 2) {
@@ -6071,10 +6085,28 @@ static std::unique_ptr<Module> emit_function(
                     DISubprogram *&inl_SP = subprograms[std::make_tuple(fname, info.file)];
                     if (inl_SP == NULL) {
                         DIFile *difile = dbuilder.createFile(info.file, ".");
-                        inl_SP = dbuilder.createFunction(
-                                difile, std::string(fname) + ";",
-                                fname, difile, 0, jl_di_func_null_sig,
-                                false, true, 0, DIFlagZero, true, nullptr);
+                        inl_SP = dbuilder.createFunction(difile
+                                                     ,std::string(fname) + ";" // Name
+                                                     ,fname            // LinkageName
+                                                     ,difile           // File
+                                                     ,0                // LineNo
+                                                     ,jl_di_func_null_sig // Ty
+#if JL_LLVM_VERSION < 80000
+                                                     ,false            // isLocalToUnit
+                                                     ,true             // isDefinition
+#endif
+                                                     ,0                // ScopeLine
+                                                     ,DIFlagZero       // Flags
+#if JL_LLVM_VERSION < 80000
+                                                     ,true             // isOptimized
+                                                     ,nullptr          // Template Parameters
+#else
+                                                     ,DISubprogram::SPFlagDefinition | DISubprogram::SPFlagOptimized // SPFlags
+                                                     ,nullptr          // Template Parameters
+                                                     ,nullptr          // Template Declaration
+                                                     ,nullptr          // ThrownTypes
+#endif
+                                                     );
                     }
                     DebugLoc inl_loc = (info.inlined_at == 0) ? DebugLoc::get(0, 0, SP, NULL) : linetable.at(info.inlined_at).loc;
                     info.loc = DebugLoc::get(info.line, 0, inl_SP, inl_loc);

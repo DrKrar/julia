@@ -33,6 +33,10 @@
 
 using namespace llvm;
 
+#if JL_LLVM_VERSION >= 80000
+typedef Instruction TerminatorInst;
+#endif
+
 std::pair<MDNode*,MDNode*> tbaa_make_child(const char *name, MDNode *parent=nullptr,
                                            bool isConstant=false);
 
