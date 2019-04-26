@@ -939,7 +939,7 @@ function _fieldtype_tfunc(@nospecialize(s), exact::Bool, @nospecialize(name))
         ft = ftypes[fld]
     end
 
-    exactft = exact || !has_free_typevars(ft)
+    exactft = exact || (!has_free_typevars(ft) && u.name !== Tuple.name)
     ft = rewrap_unionall(ft, s)
     if exactft
         if issingletontype(ft)
